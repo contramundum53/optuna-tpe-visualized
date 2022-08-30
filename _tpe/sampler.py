@@ -23,13 +23,12 @@ from optuna.samplers._random import RandomSampler
 from optuna.samplers._search_space import IntersectionSearchSpace
 from optuna.samplers._search_space.group_decomposed import _GroupDecomposedSearchSpace
 from optuna.samplers._search_space.group_decomposed import _SearchSpaceGroup
-from optuna.samplers._tpe.parzen_estimator import _ParzenEstimator
-from optuna.samplers._tpe.parzen_estimator import _ParzenEstimatorParameters
+from .parzen_estimator import _ParzenEstimator
+from .parzen_estimator import _ParzenEstimatorParameters
 from optuna.study import Study
 from optuna.study._study_direction import StudyDirection
 from optuna.trial import FrozenTrial
 from optuna.trial import TrialState
-
 
 EPS = 1e-12
 _logger = get_logger(__name__)
@@ -249,6 +248,7 @@ class TPESampler(BaseSampler):
         warn_independent_sampling: bool = True,
         constant_liar: bool = False,
         constraints_func: Optional[Callable[[FrozenTrial], Sequence[float]]] = None,
+        algorithm_logger_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
     ) -> None:
 
         self._parzen_estimator_parameters = _ParzenEstimatorParameters(
@@ -309,6 +309,9 @@ class TPESampler(BaseSampler):
                 " The interface can change in the future.",
                 ExperimentalWarning,
             )
+        
+
+        self._algorithm_logger_callback = algorithm_logger_callback or (lambda x: None)
 
     def reseed_rng(self) -> None:
 
@@ -423,6 +426,24 @@ class TPESampler(BaseSampler):
         for param_name, dist in search_space.items():
             ret[param_name] = dist.to_external_repr(ret[param_name])
 
+        self._algorithm_logger_callback({
+            "func": "_sample_relative",
+            "trial_number": trial.number,
+            "sample_type": "relative",
+            "search_space": search_space,
+            "values": values,
+            "scores": scores,
+            "violations": violations,
+            "config_values": config_values,
+            "indices_below": indices_below,
+            "indices_above": indices_above,
+            "below": below,
+            "above": above,
+            "mpe_below": mpe_below, 
+            "mpe_above": mpe_above, 
+            "samples_below": samples_below,
+            "ret": ret,})
+
         return ret
 
     def sample_independent(
@@ -477,9 +498,28 @@ class TPESampler(BaseSampler):
         samples_below = mpe_below.sample(self._rng, self._n_ei_candidates)
         log_likelihoods_below = mpe_below.log_pdf(samples_below)
         log_likelihoods_above = mpe_above.log_pdf(samples_below)
-        ret = TPESampler._compare(samples_below, log_likelihoods_below, log_likelihoods_above)
+        ret_params = TPESampler._compare(samples_below, log_likelihoods_below, log_likelihoods_above)
+        ret = param_distribution.to_external_repr(ret_params[param_name])
 
-        return param_distribution.to_external_repr(ret[param_name])
+        self._algorithm_logger_callback({
+            "func": "sample_independent",
+            "trial_number": trial.number,
+            "sample_type": "independent",
+            "param_name": param_name,
+            "param_distribution": param_distribution,
+            "values": values,
+            "scores": scores,
+            "violations": violations,
+            "config_values": config_values,
+            "indices_below": indices_below,
+            "indices_above": indices_above,
+            "below": below,
+            "above": above,
+            "mpe_below": mpe_below, 
+            "mpe_above": mpe_above, 
+            "samples_below": samples_below,
+            "ret": ret,})
+        return ret
 
     @classmethod
     def _compare(
