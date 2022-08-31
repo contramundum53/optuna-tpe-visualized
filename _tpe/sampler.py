@@ -426,7 +426,7 @@ class TPESampler(BaseSampler):
 
 
         self._algorithm_logger_callback({
-            "func": "_sample_relative",
+            "log_type": "_sample_relative",
             "trial_number": trial.number,
             "sample_type": "relative",
             "search_space": search_space,
@@ -502,7 +502,7 @@ class TPESampler(BaseSampler):
         ret = param_distribution.to_external_repr(ret_internal)
 
         self._algorithm_logger_callback({
-            "func": "sample_independent",
+            "log_type": "sample_independent",
             "trial_number": trial.number,
             "sample_type": "independent",
             "param_name": param_name,

@@ -11,8 +11,8 @@ def objective_func(x):
 
 x_range = (-10, 50)
 def objective(trial):
-    # x = trial.suggest_uniform('x', x_range[0], x_range[1])
-    x = trial.suggest_categorical('x', [-5, 0, 5, 10, 15, 20])
+    x = trial.suggest_uniform('x', x_range[0], x_range[1])
+    # x = trial.suggest_categorical('x', [-5, 0, 5, 10, 15, 20])
     y = trial.suggest_categorical('y', ["a", "b", "c"])
     return objective_func(x)
 
@@ -33,6 +33,13 @@ os.makedirs(log_dir, exist_ok=True)
 for seed in range(10):
     log_objects = []
 
+    log_objects.append({
+        "log_type": "objective_data",
+        "data": {
+            "x": (X, Y)
+        }
+    })
+
     def logger_callback(content):
         global log_objects
         # print(content)
@@ -43,7 +50,7 @@ for seed in range(10):
     study = optuna.create_study(sampler=TPESampler(
                                         consider_prior = True,
                                         prior_weight = 1.0,
-                                        consider_magic_clip = False,#True,
+                                        consider_magic_clip = True,
                                         consider_endpoints = False,
                                         n_startup_trials = 10,
                                         n_ei_candidates = 24,
