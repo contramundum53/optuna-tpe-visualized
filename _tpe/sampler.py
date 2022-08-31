@@ -421,10 +421,9 @@ class TPESampler(BaseSampler):
         samples_below = mpe_below.sample(self._rng, self._n_ei_candidates)
         log_likelihoods_below = mpe_below.log_pdf(samples_below)
         log_likelihoods_above = mpe_above.log_pdf(samples_below)
-        ret = TPESampler._compare(samples_below, log_likelihoods_below, log_likelihoods_above)
+        ret_internal = TPESampler._compare(samples_below, log_likelihoods_below, log_likelihoods_above)
+        ret = {param_name: dist.to_external_repr(ret_internal[param_name]) for param_name, dist in search_space.items()}
 
-        for param_name, dist in search_space.items():
-            ret[param_name] = dist.to_external_repr(ret[param_name])
 
         self._algorithm_logger_callback({
             "func": "_sample_relative",
@@ -442,6 +441,7 @@ class TPESampler(BaseSampler):
             "mpe_below": mpe_below, 
             "mpe_above": mpe_above, 
             "samples_below": samples_below,
+            "ret_internal": ret_internal,
             "ret": ret,})
 
         return ret
@@ -498,8 +498,8 @@ class TPESampler(BaseSampler):
         samples_below = mpe_below.sample(self._rng, self._n_ei_candidates)
         log_likelihoods_below = mpe_below.log_pdf(samples_below)
         log_likelihoods_above = mpe_above.log_pdf(samples_below)
-        ret_params = TPESampler._compare(samples_below, log_likelihoods_below, log_likelihoods_above)
-        ret = param_distribution.to_external_repr(ret_params[param_name])
+        ret_internal = TPESampler._compare(samples_below, log_likelihoods_below, log_likelihoods_above)[param_name]
+        ret = param_distribution.to_external_repr(ret_internal)
 
         self._algorithm_logger_callback({
             "func": "sample_independent",
@@ -518,6 +518,7 @@ class TPESampler(BaseSampler):
             "mpe_below": mpe_below, 
             "mpe_above": mpe_above, 
             "samples_below": samples_below,
+            "ret_internal": ret_internal,
             "ret": ret,})
         return ret
 

@@ -3,6 +3,7 @@ import numpy as np
 
 import pickle
 import sys, os
+from optuna.distributions import FloatDistribution, IntDistribution, CategoricalDistribution
 
 log_file = sys.argv[1]
 
@@ -18,14 +19,17 @@ if len(sys.argv) > 3:
 log_data = pickle.load(open(log_file, "rb"))
 
 
-def objective_func(x):
-    # return 0.03 * x ** 2 + 10 * np.sin(1 * x) + 10
-    return np.abs(x) - 10 * np.cos(1 * x) + 10
+plot_objective_func = False
 
-x_range = (-10, 50)
+if plot_objective_func:
+    def objective_func(x):
+        # return 0.03 * x ** 2 + 10 * np.sin(1 * x) + 10
+        return np.abs(x) - 10 * np.cos(1 * x) + 10
 
-X = np.linspace(x_range[0], x_range[1], 10000)
-Y = np.array([objective_func(x) for x in X])
+    x_range = (-10, 50)
+
+    X = np.linspace(x_range[0], x_range[1], 10000)
+    Y = np.array([objective_func(x) for x in X])
 
 for log_frame in log_data:
     if max_iter is not None and log_frame["trial_number"] > max_iter:
@@ -35,7 +39,19 @@ for log_frame in log_data:
         print(log_frame)
         param_name = log_frame["param_name"]
         dist = log_frame["param_distribution"]
-        bounds = (dist.low, dist.high)
+        if isinstance(dist, FloatDistribution):
+            bounds = (dist.low, dist.high)
+            X = np.array([dist.to_internal_repr(x) for x in np.linspace(bounds[0], bounds[1], 1000)])
+            is_log = dist.log
+        elif isinstance(dist, IntDistribution):
+            bounds = (dist.low - 0.5, dist.high + 0.5)
+            X = np.array([dist.to_internal_repr(x) for x in range(dist.low, dist.high+1)])
+            is_log = dist.log
+        elif isinstance(dist, CategoricalDistribution):
+            bounds = None
+            X = np.arange(len(dist.choices))
+            is_log = False
+        
 
         values = np.array(log_frame["values"][param_name])
         scores = np.array([score[0] for step, score in log_frame["scores"]])
@@ -59,27 +75,33 @@ for log_frame in log_data:
         prob_low = prob_low_func(X)
 
         samples_below = log_frame["samples_below"][param_name]
-        ret = log_frame["ret"]
+        ret_internal = log_frame["ret_internal"]
 
         fig, ax = plt.subplots(1, 1, figsize=(8, 6))
         ax.set_title(f"TPE (param:'{param_name}', number:{trial_number})")
         ax.set_xlabel("Parameter")
         ax.set_ylabel("Value")
-        ax.set_xlim(*bounds)
+        if is_log:
+            ax.set_xscale("log")
+        if bounds is not None:
+            ax.set_xlim(*bounds)
         
 
-        ax.plot(X, Y, color="gray", alpha=0.3, label="Objective")
-        ax.plot(values[indices_above], scores[indices_above], label="Above", marker=".", linestyle="none", color="red", alpha=0.3)
-        ax.plot(values[indices_below], scores[indices_below], label="Below", marker=".", linestyle="none", color="blue", alpha=0.3)
+        transform = lambda X: [dist.to_external_repr(x) for x in X]
+
+        if plot_objective_func:
+            ax.plot(transform(X), Y, color="gray", alpha=0.3, label="Objective")
+        ax.plot(transform(values[indices_above]), scores[indices_above], label="Above", marker=".", linestyle="none", color="red", alpha=0.3)
+        ax.plot(transform(values[indices_below]), scores[indices_below], label="Below", marker=".", linestyle="none", color="blue", alpha=0.3)
         
         ax2 = ax.twinx()
         ax2.set_ylim(0, 1)
-        ax2.plot(X, above_dist / dist_max, color="red", linestyle=":", alpha=0.5, label="Above dist.")
-        ax2.plot(X, below_dist / dist_max, color="blue", linestyle=":", alpha=0.5, label="Below dist.")
-        ax2.plot(X, prob_low, color="green", label="Prob. of below")
+        ax2.plot(transform(X), above_dist / dist_max, color="red", linestyle=":", alpha=0.5, label="Above dist.")
+        ax2.plot(transform(X), below_dist / dist_max, color="blue", linestyle=":", alpha=0.5, label="Below dist.")
+        ax2.plot(transform(X), prob_low, color="green", label="Prob. of below")
 
-        ax2.plot(samples_below, prob_low_func(samples_below), marker=".", linestyle="none", color="black", alpha=0.5, label="Samples", markersize=5)
-        ax2.plot([ret], prob_low_func(np.array([ret])), marker=".", linestyle="none", color="red", label="ret", markersize=10)
+        ax2.plot(transform(samples_below), prob_low_func(samples_below), marker=".", linestyle="none", color="black", alpha=0.5, label="Samples", markersize=5)
+        ax2.plot(transform([ret_internal]), prob_low_func(np.array([ret_internal])), marker=".", linestyle="none", color="red", label="ret", markersize=10)
 
         ax.legend()
         ax2.legend()
