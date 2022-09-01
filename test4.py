@@ -9,20 +9,12 @@ import kurobako_problem
 
 import numpy as np
 
-def objective_func(x):
-    # return 0.03 * x ** 2 + 10 * np.sin(1 * x) + 10
-    return np.abs(x) - 10 * np.cos(1 * x) + 10
-x_range = (-10, 50)
-def objective(trial):
-    x = trial.suggest_uniform('x', x_range[0], x_range[1])
-    # x = trial.suggest_categorical('x', [-5, 0, 5, 10, 15, 20])
-    y = trial.suggest_categorical('y', ["a", "b", "c"])
-    return objective_func(x)
-X = np.linspace(x_range[0], x_range[1], 10000)
-Y = np.array([objective_func(x) for x in X])
 
-plt.plot(X, Y)
-plt.show()
+def objective(trial):
+    x = trial.suggest_categorical('x', list(range(2)))
+    return float(np.random.normal(0.1 * x, 1.0))
+    
+
 #%%
 import pickle 
 import datetime
@@ -32,20 +24,18 @@ timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
 log_dir = f"log-{timestamp}"
 os.makedirs(log_dir, exist_ok=True)
 
-for seed in range(10):
+for seed in range(2):
     log_objects = []
-
     log_objects.append({
         "log_type": "objective_data",
         "data": {
-            "x": (X, Y)
+            "x": (np.arange(2), np.arange(2) * 0.5)
         }
     })
 
     def logger_callback(content):
         global log_objects
         log_objects.append(content)    
-
 
 
     study = optuna.create_study(sampler=TPESampler(
@@ -55,7 +45,7 @@ for seed in range(10):
                                         consider_endpoints = False,
                                         n_startup_trials = 10,
                                         n_ei_candidates = 24,
-                                        gamma = default_gamma,
+                                        gamma = lambda x: int(np.ceil(x * 0.1)),
                                         weights = default_weights,
                                         seed = seed,
                                         multivariate = False,

@@ -7,22 +7,21 @@ import matplotlib.pyplot as plt
 import kurobako_problem
 
 
-import numpy as np
+hpobench = kurobako_problem.KurobakoProblem({"hpobench": {"dataset": "/Users/yunzhuowang/optuna/fcnet_tabular_benchmarks/fcnet_naval_propulsion_data.hdf5"}}, 0)
 
-def objective_func(x):
-    # return 0.03 * x ** 2 + 10 * np.sin(1 * x) + 10
-    return np.abs(x) - 10 * np.cos(1 * x) + 10
-x_range = (-10, 50)
 def objective(trial):
-    x = trial.suggest_uniform('x', x_range[0], x_range[1])
-    # x = trial.suggest_categorical('x', [-5, 0, 5, 10, 15, 20])
-    y = trial.suggest_categorical('y', ["a", "b", "c"])
-    return objective_func(x)
-X = np.linspace(x_range[0], x_range[1], 10000)
-Y = np.array([objective_func(x) for x in X])
+    activation_fn_1 = trial.suggest_categorical('activation_fn_1', [0, 1])
+    activation_fn_2 = trial.suggest_categorical('activation_fn_2', [0, 1])
+    batch_size = trial.suggest_int('batch_size', 0, 3)
+    dropout_1 = trial.suggest_int('dropout_1', 0, 2)
+    dropout_2 = trial.suggest_int('dropout_2', 0, 2)
+    init_lr = trial.suggest_int('init_lr', 0, 5)
+    lr_schedule = trial.suggest_categorical('lr_schedule', [0, 1])
+    n_units_1 = trial.suggest_int('n_units_1', 0, 5)
+    n_units_2 = trial.suggest_int('n_units_2', 0, 5)
+    return hpobench([activation_fn_1, activation_fn_2, batch_size, dropout_1, dropout_2, init_lr, lr_schedule, n_units_1, n_units_2])
 
-plt.plot(X, Y)
-plt.show()
+
 #%%
 import pickle 
 import datetime
@@ -35,18 +34,9 @@ os.makedirs(log_dir, exist_ok=True)
 for seed in range(10):
     log_objects = []
 
-    log_objects.append({
-        "log_type": "objective_data",
-        "data": {
-            "x": (X, Y)
-        }
-    })
-
     def logger_callback(content):
         global log_objects
         log_objects.append(content)    
-
-
 
     study = optuna.create_study(sampler=TPESampler(
                                         consider_prior = True,
@@ -64,7 +54,7 @@ for seed in range(10):
                                         algorithm_logger_callback = logger_callback,
                                     ),direction='minimize')
 
-    study.optimize(objective, n_trials=1000)
+    study.optimize(objective, n_trials=100)
 
     pickle.dump(log_objects, open(f"{log_dir}/log_{seed}.pkl", "wb"))
 

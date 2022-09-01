@@ -70,7 +70,7 @@ for log_frame in log_data:
         ax.set_ylabel("Value")
         if is_log:
             ax.set_xscale("log")
-        
+        # ax.set_yscale("log")
 
         transform = lambda X: [dist.to_external_repr(x) for x in X]
 
